@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="ko" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>뷔퐁의 바늘 시뮬레이터</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        toss: {
+                            blue: '#3182F6',
+                            bg: '#F4F5F7',
+                            bgDark: '#191F28',
+                            card: '#FFFFFF',
+                            cardDark: '#1E2530',
+                            text: '#191F28',
+                            textDark: '#F4F5F7',
+                            gray: '#8B95A1',
+                            success: '#00C48C',
+                            danger: '#F45452'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <style>
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3182F6;
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #E5E7EB;
+            border-radius: 2px;
+        }
+        .dark input[type=range]::-webkit-slider-runnable-track {
+            background: #4B5563;
+        }
+    </style>
+</head>
+<body class="bg-toss-bg dark:bg-toss-bgDark text-toss-text dark:text-toss-textDark transition-colors duration-300 h-screen overflow-hidden font-sans antialiased p-3">
+
+    <div class="max-w-7xl mx-auto h-full flex flex-col gap-3">
+        <!-- Header -->
+        <header class="flex justify-between items-center flex-shrink-0">
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">🎯 뷔퐁의 바늘</h1>
+            </div>
+            <button id="themeToggle" class="p-2 rounded-full bg-white dark:bg-toss-cardDark shadow-sm hover:shadow transition-all text-base" aria-label="테마 변경">🌙</button>
+        </header>
+
+        <!-- Main Content - 3 Column Layout -->
+        <div class="flex-1 grid grid-cols-12 gap-3 min-h-0">
+            
+            <!-- Left: Canvas -->
+            <section class="col-span-5 bg-toss-card dark:bg-toss-cardDark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
+                <div class="flex-1 rounded-xl overflow-hidden bg-[#F9FAFB] dark:bg-[#151920] border border-gray-100 dark:border-gray-800 min-h-0">
+                    <canvas id="simulationCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </section>
+
+            <!-- Center: Stats + Chart -->
+            <section class="col-span-4 flex flex-col gap-3 min-h-0">
+                <!-- Stats Card -->
+                <div class="bg-toss-card dark:bg-toss-cardDark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex-shrink-0">
+                    <div class="text-center mb-3">
+                        <span class="text-toss-gray font-semibold text-xs block mb-1">π 추정값</span>
+                        <div id="piEstimate" class="text-4xl font-bold text-toss-blue tracking-tighter tabular-nums">-</div>
+                        <div class="mt-1">
+                            <span class="text-toss-gray text-xs">오차: </span>
+                            <span id="errorRate" class="text-sm font-bold text-toss-danger tabular-nums">-</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-gray-50 dark:bg-[#2C3542] rounded-xl p-2 text-center">
+                            <span class="text-toss-gray text-[10px] font-semibold block">던진 횟수</span>
+                            <span id="totalThrows" class="text-sm font-bold tabular-nums">0</span>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-[#2C3542] rounded-xl p-2 text-center">
+                            <span class="text-toss-gray text-[10px] font-semibold block">교차 횟수</span>
+                            <span id="crossings" class="text-sm font-bold tabular-nums">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart -->
+                <div class="bg-toss-card dark:bg-toss-cardDark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex-1 flex flex-col min-h-0">
+                    <h3 class="text-sm font-bold mb-2 flex-shrink-0">수렴 그래프</h3>
+                    <div class="flex-1 min-h-0">
+                        <canvas id="convergenceChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right: Controls -->
+            <section class="col-span-3 bg-toss-card dark:bg-toss-cardDark rounded-2xl p-4 shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col min-h-0">
+                <h3 class="text-sm font-bold mb-3 flex-shrink-0">실험 설정</h3>
+                
+                <div class="space-y-4 flex-shrink-0">
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <label for="needleLength" class="text-toss-gray">바늘 길이 (L)</label>
+                            <span id="needleLengthValue" class="text-toss-blue">1.0</span>
+                        </div>
+                        <input type="range" id="needleLength" min="0.1" max="2.0" step="0.1" value="1.0" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                    </div>
+
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <label for="lineSpacing" class="text-toss-gray">선 간격 (D)</label>
+                            <span id="lineSpacingValue" class="text-toss-blue">2.0</span>
+                        </div>
+                        <input type="range" id="lineSpacing" min="0.5" max="3.0" step="0.1" value="2.0" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                    </div>
+
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-xs font-semibold">
+                            <label for="speed" class="text-toss-gray">속도</label>
+                            <div><span id="speedValue" class="text-toss-blue">100</span><span class="text-toss-gray text-[10px] ml-0.5">/초</span></div>
+                        </div>
+                        <input type="range" id="speed" min="1" max="10000" step="1" value="100" class="w-full h-1 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700">
+                    </div>
+                </div>
+
+                <!-- Buttons -->
+                <div class="grid grid-cols-3 gap-2 mt-4 flex-shrink-0">
+                    <button id="startBtn" class="bg-toss-blue hover:bg-blue-600 text-white font-bold py-2 px-2 rounded-lg transition-all active:scale-95 text-xs">▶ 시작</button>
+                    <button id="pauseBtn" class="bg-gray-100 dark:bg-gray-700 text-toss-text dark:text-white font-bold py-2 px-2 rounded-lg transition-all active:scale-95 disabled:opacity-50 text-xs" disabled>⏸ 정지</button>
+                    <button id="resetBtn" class="bg-red-50 dark:bg-red-900/30 text-toss-danger font-bold py-2 px-2 rounded-lg transition-all active:scale-95 text-xs">🔄 리셋</button>
+                </div>
+
+                <!-- Secondary Actions -->
+                <div class="flex justify-between items-center mt-3 pt-3 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
+                    <div class="flex gap-1">
+                        <button id="saveBtn" class="text-[10px] font-medium text-toss-gray hover:text-toss-blue transition-colors px-1 py-0.5">💾 저장</button>
+                        <button id="loadBtn" class="text-[10px] font-medium text-toss-gray hover:text-toss-blue transition-colors px-1 py-0.5">📂 불러오기</button>
+                    </div>
+                    <div class="relative group">
+                        <button id="exportBtn" class="text-[10px] font-medium text-toss-gray hover:text-toss-blue transition-colors px-1 py-0.5 flex items-center gap-0.5">
+                            📤 내보내기
+                        </button>
+                        <div id="exportMenu" class="hidden absolute right-0 bottom-full mb-1 w-24 bg-white dark:bg-[#2C3542] rounded-lg shadow-lg border border-gray-100 dark:border-gray-700 py-1 z-10">
+                            <button id="exportPng" class="block w-full text-left px-3 py-1.5 text-[10px] text-toss-text dark:text-toss-textDark hover:bg-gray-50 dark:hover:bg-gray-700">PNG</button>
+                            <button id="exportCsv" class="block w-full text-left px-3 py-1.5 text-[10px] text-toss-text dark:text-toss-textDark hover:bg-gray-50 dark:hover:bg-gray-700">CSV</button>
+                            <button id="exportJson" class="block w-full text-left px-3 py-1.5 text-[10px] text-toss-text dark:text-toss-textDark hover:bg-gray-50 dark:hover:bg-gray-700">JSON</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Formula (Always visible, fills space) -->
+                <div class="flex-1 pt-3 border-t border-gray-100 dark:border-gray-800 overflow-auto">
+                    <h4 class="text-xs font-bold text-toss-gray mb-2">📐 수학적 원리</h4>
+                    <div class="text-[10px] text-toss-gray space-y-2">
+                        <div class="bg-gray-50 dark:bg-[#2C3542] rounded-lg p-2">
+                            <p class="font-semibold text-toss-text dark:text-toss-textDark mb-1">교차 확률</p>
+                            <p class="font-mono text-toss-blue">P = 2L / (πD)</p>
+                        </div>
+                        <div class="bg-gray-50 dark:bg-[#2C3542] rounded-lg p-2">
+                            <p class="font-semibold text-toss-text dark:text-toss-textDark mb-1">π 추정</p>
+                            <p class="font-mono text-toss-blue">π ≈ 2Ln / (Dh)</p>
+                        </div>
+                        <div class="space-y-1 text-[9px]">
+                            <p><span class="font-bold">L</span> = 바늘 길이</p>
+                            <p><span class="font-bold">D</span> = 선 간격</p>
+                            <p><span class="font-bold">n</span> = 던진 횟수</p>
+                            <p><span class="font-bold">h</span> = 교차 횟수</p>
+                        </div>
+                        <p class="text-[9px] leading-relaxed border-t border-gray-200 dark:border-gray-700 pt-2">
+                            1777년 프랑스 수학자 뷔퐁이 제안한 확률 실험으로, 바늘을 무작위로 던져 평행선과 교차하는 횟수로 π를 추정합니다.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        const exportBtn = document.getElementById('exportBtn');
+        const exportMenu = document.getElementById('exportMenu');
+        
+        exportBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            exportMenu.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', () => {
+            if (!exportMenu.classList.contains('hidden')) {
+                exportMenu.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
